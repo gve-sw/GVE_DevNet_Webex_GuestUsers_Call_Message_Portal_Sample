@@ -33,7 +33,7 @@ function startRoomWidget(roomId){
     webex.widget(widget_div).remove();
 
     webexsdk.memberships.list({roomId: roomId}).then((membership) => {
-        if(membership.length <= 2){
+        if(membership.length <= 3){
             // Init a new widget
             webex.widget(widget_div).spaceWidget({
                 accessToken: guest_token,
@@ -141,6 +141,9 @@ function customLogic(){
         },
         success: function(res){
             // response from POST /connect_guest
+            if(res == "200"){
+                location.reload();
+            }
         }
     });
 }

@@ -12,7 +12,7 @@ or implied.
 """
 
 # Import Section
-from flask import Flask, render_template, request, redirect
+from flask import Flask, render_template, request, redirect, url_for
 import json
 import os
 import requests
@@ -72,10 +72,6 @@ def admin():
 @app.route('/guest', methods=["POST"])
 def guest():
 
-    #username = request.form['username']
-    #password = request.form['password']
-    #print(username)
-    #print(password)
     username=request.form.get('username')
     password=request.form.get('password')
     print('Username: ',username)
@@ -91,12 +87,17 @@ def guest():
             was_found = True
             break
     if was_found and guests[index]['password']==password:
+        # start the webex SDK with the AppAdmin access token since we are going to obtain a guest access token
+        # for the person that is logging in
         api= WebexTeamsAPI(access_token=ACCESS_TOKEN)
+        #subject is the unique key that tells our Guest Issure authority which guest user to obtain the access token for
         subject = guests[index]['username']
         display_name = guests[index]['name']
         guest_issuer_id = os.getenv("GUEST_ISSUER_ID")
         expiration_time = os.getenv("GUEST_TOKEN_EXPIRATION")
         secret = os.getenv("GUEST_SHARED_SECRET")
+        # guest_issuer.create() is used both to create a new guest and obtain the access token for them, as long as the subject is
+        # correctly set to a unique identifier (username in this sample application) it should return/create the right one.
         guestT = api.guest_issuer.create(subject, display_name, guest_issuer_id, str(int(time.time())+int(expiration_time)), secret)
         print("Obtained guest token for login: ",guestT.token)
         webexapi = WebexTeamsAPI(access_token=guestT.token)
@@ -104,17 +105,17 @@ def guest():
         room_list = list(islice(rooms, 30)) # Alvin: You may remove this line as there are too many rooms to be returned, leading to long loading time for testing
 
 
-
-        # Alvin: You would pass the guest token as guest_token below
-        #TODO: Alvin to avoid passing to guest.html all passwords !!!
-        return render_template('guest.html', guests=guests, rooms=room_list, guest_token=guestT.token, logged_in=True, timeAndLocation=getSystemTimeAndLocation())
+        # Popping off the password from the list by the line below so the are not passed to the page used by the guest user
+        # (if so, they could inspect the page and see them)
+        guests = [{k: v for k, v in guest.items() if k != "password"} for guest in guests]
+        return render_template('guest.html', guests=guests, rooms=room_list, guest_token=guestT.token, logged_in=True, user=display_name, timeAndLocation=getSystemTimeAndLocation())
     else:
         if was_found:
             print("Invalid password for guest.")
+            return render_template('login.html', error=True, errormessage="Invalid password for guest.")
         else:
             print("Guest Username not found.")
-        #TODO: Alvin show user that they had the wrong username or password when rendering login.html from here.
-        return render_template('login.html')
+            return render_template('login.html', error=True, errormessage="Guest Username not found.")
 
 @app.route('/create_guest', methods=["POST"])
 def create_guest():
@@ -126,17 +127,23 @@ def create_guest():
     print(username)
     print(password)
     print(allowed_conn)
-    # Alvin: Logic of Adding Guest
+    # to create a guest token user it is not mandatory to instantiate the API with the AppAdmin token, but it does not
+    # hurt either and there has been some errors thrown by the SDK in the past that can be avoided this way
     api = WebexTeamsAPI(access_token=ACCESS_TOKEN)
-    #api = WebexTeamsAPI()
+
     subject = username
     display_name = name
     guest_issuer_id = os.getenv("GUEST_ISSUER_ID") # The guest issuer id. You can obtain this from developer.webex.com
     expiration_time = os.getenv("GUEST_TOKEN_EXPIRATION") # Unix timestamp of how long this guest issuer should be valid for.
     secret = os.getenv("GUEST_SHARED_SECRET") # The secret, also obtained from developer.webex.com
-
+    # guest_issuer.create() is used both to create a new guest and obtain the access token for them, as long as the subject is
+    # correctly set to a unique identifier (username in this sample application) it should return/create the right one.
     guest = api.guest_issuer.create(subject, display_name, guest_issuer_id, str(int(time.time())+int(expiration_time)), secret)
     print('Guest Token: ',guest.token)
+
+    # we now have the new guest token user's access token, but we do not yet have the PersonID we want to keep around
+    # to more easily add them to spaces. To be able to obtain it, we first have to re-initialize the Webex Teams SDK with the
+    # access token of the guest and then call people.me() to get that PersonID and store it in our .json local file
     api2 = WebexTeamsAPI(access_token=guest.token)
     mePerson=api2.people.me()
     print("PersonID: ",mePerson.id)
@@ -159,12 +166,9 @@ def create_guest():
 @app.route('/edit_guest', methods=["POST"])
 def edit_guest():
     id = request.form['id']
-    name = request.form['name']
-    username = request.form['username']
     password = request.form['password']
     allowed_conn = json.loads(request.form['allowed_conn'])
-    # Alvin: Logic of Guest Record Update
-    #TODO: Alvin to dissallow editing of anything but the password and allowed_conn or it will break the Guest token mechanism
+
     with open("./guests.json", "r") as data:
         guests = json.loads(data.read()) # Alvin: Update this if you are not using JSON file for storage, and also update the schema
     data.close()
@@ -190,7 +194,7 @@ def edit_guest():
 @app.route('/delete_guest', methods=["POST"])
 def delete_guest():
     id = request.form['id']
-    # Alvin: Logic of Guest Record Removal
+
     print("id to remove:", id)
     with open("./guests.json", "r") as data:
         guests = json.loads(
@@ -214,16 +218,29 @@ def delete_guest():
 
 @app.route('/connect_guest', methods=["POST"])
 def connect_guest():
+    # First, extract the list of personIds of the guest token users we want to put together into a space
+    # if you do not want to have more than one space with the same exact participants even if the space name is diffent
+    # (i.e. only one "direct" 1-1 space) ,then you should check that here before proceeding.
     ids = request.form['connect_ids'].split(",")
     print("IDs received: ",ids)
-    # Alvin: Response to "Connect" button
+
+    # First check to make sure they selected more than just 1 person to create the space for
     if len(ids)>1:
+        # now we need to retrieve the AppAdmin access token since it is the fully licensed user that can create
+        # the spaces to add the guest token users in so that they can message and meet with each other without
+        # incurring into any licensing violations
         api = WebexTeamsAPI(access_token=ACCESS_TOKEN)
+        # below we are using a very crude way to give unique names to the spaces: "guestconn" plus the last 4 characters of
+        # the person ID of each of the participants. It is reccomended you implement a more "user friendly" naming scheme
         roomname="guestconn"
         for the_id in ids:
             roomname=roomname+the_id[-4:]
+        #now it is time to first just create the new space and capture it's ID
         the_room=api.rooms.create(roomname)
         print("Created room ID: ",the_room.id)
+
+        # now iterate through all the personIDs that we intend to put in a space and add them by creating
+        # a new "membership"  in the new space using it's ID we obtained above after creating
         for the_id in ids:
             the_membership=api.memberships.create(the_room.id,the_id)
             print("Created a membership: ",the_membership.id)

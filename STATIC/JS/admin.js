@@ -14,8 +14,6 @@ $(function(){
             url: "/edit_guest",
             data: {
                 "id": this_obj.parent().parent().find(".id").html(),
-                "name": this_obj.parent().parent().find(".name").val(),
-                "username": this_obj.parent().parent().find(".username").val(),
                 "password": this_obj.parent().parent().find(".password").val(),
                 "allowed_conn": JSON.stringify(allowed_conn)
             },

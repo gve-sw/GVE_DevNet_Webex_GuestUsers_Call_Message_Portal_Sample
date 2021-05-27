@@ -17,7 +17,7 @@ with other Guest Token users all under the control of full Webex accounts so tha
 
 ## Installation/Configuration
 
-It is recommended to set up your environment as followed, to use this frontend template:
+It is recommended to set up your environment as follows to use this sample:
 
 In the CLI:
 1.	Choose a folder, then create and activate a virtual environment for the project
@@ -104,6 +104,12 @@ NOTE: This URL does not actually have to map to a public IP address out on the i
 
 Once the flask app is running, go the main page (i.e. http://0.0.0.0:5000) and select the Administrator Login button. No need to fill out credentials.
 
+NOTE: For audio/video communications to work using the Webex Widgets and eventually the Webex SDK, you must connect to the web server using 
+https or localhost (i.e. localhost:500 or https://0.0.0.0:5000). There are many articles on the web on how to enable HTTPS for Flask servers,
+but you are better off simply not using the Flask built-in server since it is not suitable for production. This section of the Flask documentation 
+gives details on the various options to Deploy Flask for production with full security enabled: https://flask.palletsprojects.com/en/0.12.x/deploying/
+
+
 You will be presented with a page where you can add new guest users using the "+ New Guest Account" button on the top left. 
 
 After you have created at least 2 guest users, go back to the login page by clicking on the "Logout" button on the top right. 
@@ -114,7 +120,7 @@ You will be presented with a "List Active Rooms" section which will be initially
 on the top left , select at least 2 users (including yourself) and click on Connect.  You then need to back out with the Logout button on the top right 
 and log back in with the guest credentials to see the newly created room.
 
-Now click on the room and a Webed Gadget will be presented where you can chat and meet with the other user(s) in that space.
+Now click on the room and a Webex Gadget will be presented where you can chat and meet with the other user(s) in that space.
 
 =========================================  
 

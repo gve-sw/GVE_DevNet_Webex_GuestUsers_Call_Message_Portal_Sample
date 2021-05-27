@@ -15,7 +15,7 @@
     display: none !important;
 }
 
-.td-input{
+.td-input, .td-input-disabled{
     height: 35px;
 }
 
