@@ -1,0 +1,118 @@
+<!-- This login page offers various input field to gather global information like API Keys,
+    login name or password in advance of starting the demo.-->
+
+    {% extends "masterPage.html" %}
+
+    {% block head %}
+
+    <script>var guest_token = "{{ guest_token }}"</script>
+    <script src="https://unpkg.com/webex@^1/umd/webex.min.js"></script>
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://code.s4d.io/widget-space/production/main.css">
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="https://code.s4d.io/widget-space/production/bundle.js"></script>
+    <script src="{{ url_for('static', filename='JS/guest.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='CSS/guest.css') }}">
+
+    {% endblock %}
+
+    {% block content %}
+
+    <div class="row">
+        <!-- Left Rail -->
+            <div class="col-xl-4 col-md-4 col-4">
+                <div class="section">
+                    <div class="panel panel--loose panel--raised base-margin-bottom no-padding">
+                        <div class="section">
+                            <div class="col-xl-12 col-md-12 col-12 flex flex-center">
+                                <div class="form-group form-group--inline input--icon">
+                                    <div class="dropdown">
+                                        <div class="form-group__text">
+                                            <input id="searchbar" type="search" val="" required>
+                                            <button type="button" class="link" tabindex="-1">
+                                                <span class="icon-search"></span>
+                                            </button>
+                                        </div>
+                                        <div class="dropdown__menu">
+                                            {% for guest in guests %}
+                                                <div class="form-group">
+                                                    <label class="checkbox">
+                                                        <input type="checkbox" onchange="selectGuest('{{guest.name}}', '{{guest.id}}')">
+                                                        <span class="checkbox__input"></span>
+                                                        <span class="checkbox__label">{{ guest.name }}</span>
+                                                    </label>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                        <input type="text" name="connect-ids" id="connect-ids" value="" hidden>
+                                    </div>
+                                </div>
+                                <div class="form-group form-group--inline">
+                                    <div class="form-group__text">
+                                        <button onclick="customLogic()" class="btn">Connect</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="panel panel--loose panel--raised base-margin-bottom">
+                        <div class="section">
+                            <div class="col-xl-12 col-md-12 col-12">
+                                <table class="table table--lined table--selectable table">
+                                    <thead>
+                                        <th>Last Active Rooms</th>
+                                    </thead>
+                                    <tbody id="rooms">
+                                        {% for room in rooms %}
+                                            <tr>
+                                                <td class="room-name" id="{{room.id}}" onclick="startRoomWidget('{{room.id}}')">{{ room.title }}</td>
+                                                <td class="hidden">
+                                                    <span class="label label--success">New</span>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        <!-- Middle Rail -->
+            <div class="col-xl-1 col-md-1 col-1"></div>
+
+        <!-- Right Rail -->
+            <div class="col-xl-7 col-md-7 col-7">
+                <div class="section">
+                    <div class="panel panel--loose panel--raised base-margin-bottom">
+                        <div id="room-widget"></div>
+                    </div>
+                </div>
+            </div>
+
+    </div>
+
+    <div class="toast toast--loose hidden">
+        <div class="toast__icon text-info icon-info-outline"></div>
+        <div class="toast__body">
+            <div class="toast__title" id="noti-room-name"></div>
+            <div class="toast__message" id="noti-msg"></div>
+        </div>
+        <a href="javascript: closeToast();" class="toast__close icon-close"></a>
+    </div>
+
+    <div class="row">
+        <div class="col-xl-4 col-md-4 col-4">
+        </div>
+
+        <div class="col-xl-4 col-md-4 col-4">
+            <!--Alert for error message-->
+            <!--PASS INFO: Pass the following information to the template: error=True/False ; errormessage="xxx" ; errorcode=xxx-->
+            {% include "alert.html" %}
+        </div>
+    </div>
+    {%  endblock %}

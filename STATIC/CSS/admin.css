@@ -1,0 +1,36 @@
+.allow-overflow{
+    overflow: visible !important;
+}
+
+.dropdown__menu{
+    padding: 10px;
+    left: 0;
+}
+
+#sticky-footer{
+    position: sticky !important;
+}
+
+.hidden{
+    display: none !important;
+}
+
+.td-input{
+    height: 35px;
+}
+
+#pop-up-window{
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 90;
+}
+
+#new-guest-div{
+    width: 500px;
+    height: 400px;
+    margin: auto;
+    top: 15%;
+}

@@ -1,0 +1,52 @@
+table{
+  width: 100%;
+}
+
+tbody#rooms{
+    display: block;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+td.room-name{
+    max-width: 380px;
+    width: 380px !important;
+}
+
+.hidden{
+    display: none !important;
+}
+
+div#room-widget{
+    max-height: 670px;
+    height: 670px;
+}
+
+.toast{
+    position: absolute !important;
+    top: 7% !important;
+    right: 1% !important;
+    max-height: 95px !important;
+    max-width: 320px !important;
+}
+
+.toast__body{
+    max-height: 63px !important;
+    overflow: hidden;
+}
+
+#searchbar{
+    width: 350px !important;
+}
+
+.dropdown__menu{
+    width: 350px !important;
+    padding: 10px;
+    left: 0;
+}
+
+#overridden-meet{
+    position: relative;
+    top: 30%;
+    left: 96%;
+}

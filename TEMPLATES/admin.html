@@ -1,0 +1,159 @@
+<!-- This login page offers various input field to gather global information like API Keys,
+    login name or password in advance of starting the demo.-->
+
+    {% extends "masterPage.html" %}
+
+    {% block head %}
+
+    <script src="{{ url_for('static', filename='JS/admin.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='CSS/admin.css') }}">
+
+    {% endblock %}
+
+    {% block content %}
+
+    <div id="pop-up-window" class="section hidden">
+        <div id="new-guest-div" class="panel panel--loose panel--raised base-margin-bottom">
+            <form id="new-guest-form" action="/create_guest" method="POST">
+                <div class="text-center base-margin-bottom">
+                    <h4>Adding a New Guest Account</h4>
+                </div>
+                <div class="col-md-12">
+                    <div class="form-group">
+                        <div class="form-group__text">
+                            <input id="new-name" name="new-name" type="text">
+                            <label for="new-name">Name</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-group__text">
+                            <input id="new-username" name="new-username" type="text">
+                            <label for="new-username">Username</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-group__text">
+                            <input id="new-password" name="new-password" type="text">
+                            <label for="new-password">Password</label>
+                        </div>
+                    </div>
+                    <div class="form-group dropdown">
+                        <div class="form-group__text select">
+                            <input id="new-allowed-conn-dropdown" class="td-input" value="Select Connections">
+                            <label for="new-allowed-conn-dropdown">Allowed Connections</label>
+                        </div>
+                        <div id="new-allowed-conn-list" class="dropdown__menu">
+                            {% for guest in guests %}
+                                <div class="form-group">
+                                    <label class="checkbox">
+                                        <input class="{{guest.id}}" type="checkbox">
+                                        <span class="checkbox__input"></span>
+                                        <span class="checkbox__label">{{ guest.name }}</span>
+                                    </label>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="form-group hidden">
+                        <input type="text" id="new-allowed-conn" name="new-allowed-conn" value="">
+                    </div>
+                    <div class="form-group text-center">
+                        <button type="button" onclick="submitForm()" class="btn btn--primary create-btn">Create</button>
+                        <button type="button" onclick="closeForm()" class="btn btn--ghost close-btn">Cancel</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row">
+
+        <div class="col-12 col-lg-12 col-xl-12">
+            <div class="section">
+                <!--Alert for error message-->
+                <!--PASS INFO: Pass the following information to the template: error=True/False ; errormessage="xxx" ; errorcode=xxx-->
+                {% include "alert.html" %}
+            </div>
+
+            <div class="section">
+                <button onclick="openForm()" class="btn">+ New Guest Account</button>
+            </div>
+
+            <div class="section">
+                <div class="panel panel--loose panel--raised base-margin-bottom">
+                    <!--CUSTOMIZE: Change table content as needed -->
+                    <div class="responsive-table allow-overflow">
+                        <table class="table table--lined">
+                            <thead>
+                                <tr id="guests-header">
+                                    <th class="text-center">Guest ID</th>
+                                    <th class="text-center">Name</th>
+                                    <th class="text-center">Username</th>
+                                    <th class="text-center">Password</th>
+                                    <th class="text-center">Allowed Connections</th>
+                                    <th class="text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="guests">
+                                {% for guest in guests %}
+                                    <tr class="allow-overflow">
+                                        <td class="text-center id">{{ guest.id }}</td>
+                                        <td class="text-center">
+                                            <input class="text-center td-input name" type="text" value="{{guest.name}}" disabled></input>
+                                        </td>
+                                        <td class="text-center">
+                                            <input class="text-center td-input username" type="text" value="{{guest.username}}" disabled></input>
+                                        </td>
+                                        <td class="text-center">
+                                            <input class="text-center td-input password" type="text" value="{{guest.password}}" disabled></input>
+                                        </td>
+                                        <td class="text-center allow-overflow">
+                                            <div class="form-group dropdown">
+                                                <div class="form-group__text select">
+                                                    <input class="td-input" value="Select Connections" disabled>
+                                                </div>
+                                                <div class="dropdown__menu allowed-conn">
+                                                    {% for other_guest in guests %}
+                                                        {% if not other_guest.id == guest.id %}
+                                                            <div class="form-group">
+                                                                <label class="checkbox">
+                                                                    {% if other_guest.id in guest.allowed_conn %}
+                                                                        <input class="{{other_guest.id}}" type="checkbox" checked>
+                                                                    {% else %}
+                                                                        <input class="{{other_guest.id}}" type="checkbox">
+                                                                    {% endif %}
+                                                                    <span class="checkbox__input"></span>
+                                                                    <span class="checkbox__label">{{ other_guest.name }}</span>
+                                                                </label>
+                                                            </div>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="text-center">
+                                            <button class="btn btn--circle btn--small btn--success save-btn hidden">
+                                                <span class="icon-check"></span>
+                                            </button>
+                                            <button class="btn btn--circle btn--small btn--secondary edit-btn">
+                                                <span class="icon-edit"></span>
+                                            </button>
+                                            <button class="btn btn--circle btn--small btn--ghost cancel-btn hidden">
+                                                <span class="icon-edit"></span>
+                                            </button>
+                                            <button class="btn btn--circle btn--small btn--danger delete-btn">
+                                                <span class="icon-trash"></span>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        <!--CUSTOMIZE END-->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {%  endblock %}
