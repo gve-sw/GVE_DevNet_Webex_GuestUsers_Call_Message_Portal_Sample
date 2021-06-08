@@ -50,3 +50,10 @@ div#room-widget{
     top: 30%;
     left: 96%;
 }
+
+.return-big-space{
+    position: absolute;
+    bottom: 16%;
+    right: 5%;
+    z-index: 99;
+}

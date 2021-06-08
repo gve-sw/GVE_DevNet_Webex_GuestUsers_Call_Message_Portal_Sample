@@ -66,7 +66,6 @@ function startRoomWidget(roomId){
                     </button>
                 </span>`);
             }, 3000);
-
         }
     });
 }
@@ -103,33 +102,54 @@ function selectGuest(name, id){
 // custom logic for multi-party meeting
 function customizedMeet(roomId){
     console.log(roomId);
-    // Alvin: create a new room
+    // create a new room
     $.ajax({
         type: "POST",
-        url: "/connect_guest", // Alvin: change URL
+        url: "/swap_big_space",
         data: {
-            "connect_ids": $('#connect-ids').val()
+            "room_id": roomId
         },
         success: function(res){
-            // response from POST /connect_guest
+            // response from POST /swap_big_space
             // successful upon creating a new room
-            var new_room_id = res;
+            console.log(res);
+            var new_room_id = res.reserved_space_id;
+            console.log("Reserved space Id: ",new_room_id);
             var widget_div = document.getElementById('room-widget');
             webex.widget(widget_div).remove();
+            $('.return-big-space').removeClass("hidden");
+            $('#return-btn').data("return-space-id", roomId);
 
             // Init a new widget
             webex.widget(widget_div).spaceWidget({
                 accessToken: guest_token,
                 destinationType: 'spaceId',
                 destinationId: new_room_id,
-                spaceActivities: { "files": true, "meet": true, "message": true, "people": true },
-                initialActivity: 'message',
+                spaceActivities: { "files": false, "meet": true, "message": false, "people": false },
+                initialActivity: 'meet',
                 secondaryActivitiesFullWidth: false,
                 composerActions: { "attachFiles": true }
             });
         }
     });
+}
 
+// Red "End" button is clicked to return big space
+function returnBigSpace(){
+    $.ajax({
+        type: "POST",
+        url: "/return_big_space",
+        data: {
+            "orig_big_space_id": $('#return-btn').data("return-space-id")
+        },
+        success: function(res, textStatus, xhr){
+            // response from POST /connect_guest
+            if(xhr.status == 201){
+                startRoomWidget($('#return-btn').data("return-space-id"));
+                $('.return-big-space').addClass("hidden");
+            }
+        }
+    });
 }
 
 function customLogic(){

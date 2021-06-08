@@ -2,11 +2,13 @@
     "id": "xxxxxxx",
     "name": "LargeMeeting1",
     "ownerId": "xyxyxyxyxyxyxyxy",
-    "busy": false
+    "busy": false,
+    "borrowing_space_id": "zzzzz"
 },
 {
     "id": "yyyyy",
     "name": "LargeMeeting2",
     "ownerId": "xyxyxyxyxyxyxyxy",
-    "busy": false
+    "busy": false,
+    "borrowing_space_id": "zzzzz"
 }]

@@ -12,7 +12,8 @@ or implied.
 """
 
 # Import Section
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, session, redirect, url_for, jsonify, make_response
+from requests_oauthlib import OAuth2Session
 import json
 import os
 import requests
@@ -32,11 +33,23 @@ SCOPE = 'spark:all'
 #initialize variabes for URLs
 #REDIRECT_URL must match what is in the integration, but we will construct it below in __main__
 # so no need to hard code it here
-PUBLIC_URL='http://0.0.0.0:5000'
+PUBLIC_URL='http://localhost:5000'
+#REDIRECT_URI will be set in admin() if it needs to trigger the oAuth flow
 REDIRECT_URI=""
 
+
+os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+
 app = Flask(__name__)
-ACCESS_TOKEN=os.getenv("WEBEX_TEAMS_ACCESS_TOKEN")
+#ACCESS_TOKEN=os.getenv("WEBEX_TEAMS_ACCESS_TOKEN")
+
+app.secret_key = '123456789012345678901234'
+
+AppAdminID=''
+
+largespaces=[]
+with open("./largespaces.json", "r") as data:
+    largespaces = json.loads(data.read())
 
 #Methods
 #Returns location and time of accessing device
@@ -63,14 +76,193 @@ def getSystemTimeAndLocation():
 def login():
     return render_template('login.html')
 
+@app.route("/callback", methods=["GET"])
+def callback():
+    """
+    Retrieving an access token.
+    The user has been redirected back from the provider to your registered
+    callback URL. With this redirection comes an authorization code included
+    in the redirect URL. We will use that to obtain an access token.
+    """
+    global REDIRECT_URI
+
+    print("Came back to the redirect URI, trying to fetch token....")
+    print("redirect URI should still be: ",REDIRECT_URI)
+    print("Calling OAuth2SEssion with CLIENT_ID ",os.getenv('CLIENT_ID')," state ",session['oauth_state']," and REDIRECT_URI as above...")
+    auth_code = OAuth2Session(os.getenv('CLIENT_ID'), state=session['oauth_state'], redirect_uri=REDIRECT_URI)
+    print("Obtained auth_code: ",auth_code)
+    print("fetching token with TOKEN_URL ",TOKEN_URL," and client secret ",os.getenv('CLIENT_SECRET')," and auth response ",request.url)
+    token = auth_code.fetch_token(token_url=TOKEN_URL, client_secret=os.getenv('CLIENT_SECRET'),
+                                  authorization_response=request.url)
+
+    print("Token: ",token)
+    print("should have grabbed the token by now!")
+    session['oauth_token'] = token
+    with open('tokens.json', 'w') as json_file:
+        json.dump(token, json_file)
+    return redirect(url_for('.admin'))
+
+
+#manual refresh of the token
+@app.route('/refresh', methods=['GET'])
+def webex_teams_webhook_refresh():
+
+    r_api=None
+
+    teams_token = session['oauth_token']
+
+    # use the refresh token to
+    # generate and store a new one
+    access_token_expires_at=teams_token['expires_at']
+
+    print("Manual refresh invoked!")
+    print("Current time: ",time.time()," Token expires at: ",access_token_expires_at)
+    refresh_token=teams_token['refresh_token']
+    #make the calls to get new token
+    extra = {
+        'client_id': os.getenv('CLIENT_ID'),
+        'client_secret': os.getenv('CLIENT_SECRET'),
+        'refresh_token': refresh_token,
+    }
+    auth_code = OAuth2Session(os.getenv('CLIENT_ID'), token=teams_token)
+    new_teams_token=auth_code.refresh_token(TOKEN_URL, **extra)
+    print("Obtained new_teams_token: ", new_teams_token)
+    #store new token
+
+    teams_token=new_teams_token
+    session['oauth_token'] = teams_token
+    #store away the new token
+    with open('tokens.json', 'w') as json_file:
+        json.dump(teams_token, json_file)
+
+    #test that we have a valid access token
+    r_api = WebexTeamsAPI(access_token=teams_token['access_token'])
+
+    return ("""<!DOCTYPE html>
+                   <html lang="en">
+                       <head>
+                           <meta charset="UTF-8">
+                           <title>Webex Teams Bot served via Flask</title>
+                       </head>
+                   <body>
+                   <p>
+                   <strong>The token has been refreshed!!</strong>
+                   </p>
+                   </body>
+                   </html>
+                """)
+
+
+
 @app.route('/admin')
 def admin():
-    with open("./guests.json", "r") as data:
-        guests = json.loads(data.read()) # Alvin: Update this if you are not using JSON file for storage, and also update the schema
-        return render_template('admin.html', guests=guests, logged_in=True, timeAndLocation=getSystemTimeAndLocation())
+
+    global REDIRECT_URI
+    global PUBLIC_URL
+    global ACCESS_TOKEN
+
+    if os.path.exists('tokens.json'):
+        with open('tokens.json') as f:
+            tokens = json.load(f)
+    else:
+        tokens = None
+
+    if tokens == None or time.time()>(tokens['expires_at']+(tokens['refresh_token_expires_in']-tokens['expires_in'])):
+        # We could not read the token from file or it is so old that even the refresh token is invalid, so we have to
+        # trigger a full oAuth flow with user intervention
+        REDIRECT_URI = PUBLIC_URL + '/callback'  # Copy your active  URI + /callback
+        print("Using PUBLIC_URL: ",PUBLIC_URL)
+        print("Using redirect URI: ",REDIRECT_URI)
+        teams = OAuth2Session(os.getenv('CLIENT_ID'), scope=SCOPE, redirect_uri=REDIRECT_URI)
+        authorization_url, state = teams.authorization_url(AUTHORIZATION_BASE_URL)
+
+        # State is used to prevent CSRF, keep this for later.
+        print("Storing state: ",state)
+        session['oauth_state'] = state
+        print("root route is re-directing to ",authorization_url," and had sent redirect uri: ",REDIRECT_URI)
+        return redirect(authorization_url)
+    else:
+        # We read a token from file that is at least younger than the expiration of the refresh token, so let's
+        # check and see if it is still current or needs refreshing without user intervention
+        print("Existing token on file, checking if expired....")
+        access_token_expires_at = tokens['expires_at']
+        if time.time() > access_token_expires_at:
+            print("expired!")
+            refresh_token = tokens['refresh_token']
+            # make the calls to get new token
+            extra = {
+                'client_id': os.getenv('CLIENT_ID'),
+                'client_secret': os.getenv('CLIENT_SECRET'),
+                'refresh_token': refresh_token,
+            }
+            auth_code = OAuth2Session(os.getenv('CLIENT_ID'), token=tokens)
+            new_teams_token = auth_code.refresh_token(TOKEN_URL, **extra)
+            print("Obtained new_teams_token: ", new_teams_token)
+            # assign new token
+            tokens = new_teams_token
+            # store away the new token
+            with open('tokens.json', 'w') as json_file:
+                json.dump(tokens, json_file)
+
+
+        session['oauth_token'] = tokens
+        print("Using stored or refreshed token....")
+        ACCESS_TOKEN=tokens['access_token']
+
+
+        with open("./guests.json", "r") as data:
+            guests = json.loads(data.read()) # Alvin: Update this if you are not using JSON file for storage, and also update the schema
+            return render_template('admin.html', guests=guests, logged_in=True, timeAndLocation=getSystemTimeAndLocation())
 
 @app.route('/guest', methods=["POST"])
 def guest():
+
+    #first check to see if the AppAdmin user is logged in on the application, if not , show an error prompting for user to
+    # get help from an "Admin" to get the application started properly
+
+    global ACCESS_TOKEN
+    global AppAdminID
+
+    if os.path.exists('tokens.json'):
+        with open('tokens.json') as f:
+            tokens = json.load(f)
+    else:
+        tokens = None
+
+    if tokens == None or time.time()>(tokens['expires_at']+(tokens['refresh_token_expires_in']-tokens['expires_in'])):
+        # We could not read the token from file or it is so old that even the refresh token is invalid, so we have to
+        # give an error message for Guest Login
+        print("App Admin not logged in. Please contact Administrator...")
+        return render_template('login.html', error=True, errormessage="App Admin not logged in. Please contact Administrator...")
+    else:
+        # We read a token from file that is at least younger than the expiration of the refresh token, so let's
+        # check and see if it is still current or needs refreshing without user intervention
+        print("Existing token on file, checking if expired....")
+        access_token_expires_at = tokens['expires_at']
+        if time.time() > access_token_expires_at:
+            print("expired!")
+            refresh_token = tokens['refresh_token']
+            # make the calls to get new token
+            extra = {
+                'client_id': os.getenv('CLIENT_ID'),
+                'client_secret': os.getenv('CLIENT_SECRET'),
+                'refresh_token': refresh_token,
+            }
+            auth_code = OAuth2Session(os.getenv('CLIENT_ID'), token=tokens)
+            new_teams_token = auth_code.refresh_token(TOKEN_URL, **extra)
+            print("Obtained new_teams_token: ", new_teams_token)
+            # assign new token
+            tokens = new_teams_token
+            # store away the new token
+            with open('tokens.json', 'w') as json_file:
+                json.dump(tokens, json_file)
+
+        session['oauth_token'] = tokens
+        print("Using stored or refreshed token....")
+        ACCESS_TOKEN=tokens['access_token']
+
+
+
 
     username=request.form.get('username')
     password=request.form.get('password')
@@ -90,6 +282,13 @@ def guest():
         # start the webex SDK with the AppAdmin access token since we are going to obtain a guest access token
         # for the person that is logging in
         api= WebexTeamsAPI(access_token=ACCESS_TOKEN)
+
+        # get the personID for AppAdmin
+        theResult = api.people.me()
+        AppAdminID=theResult.id
+        print("AppAdmin personID: ", AppAdminID)
+
+
         #subject is the unique key that tells our Guest Issure authority which guest user to obtain the access token for
         subject = guests[index]['username']
         display_name = guests[index]['name']
@@ -248,7 +447,115 @@ def connect_guest():
         print("Need at least 2 ids to connect in a space.")
     return "200"
 
+@app.route('/swap_big_space', methods=["POST"])
+def swap_big_space():
+    # Here we need the space ID to go ahead and select a "free" space from the largespaces array of dicts (which was read
+    # originally from largespaces.json upon starting the app, for now it does not update the file)
+    # and mark that space as busy. We need to remove all memberships execpt AppAdmin and the owner from it in case it was not
+    # properly "cleaned out" in the previous use.
+    # Afterwards, we read the members of the large space still being displayed on the Guest page and create new
+    # memberships with them in the reserved large space. After that, we can return the space ID of the "reserved" large space
+    # so the guest page redraws the widget without the restrictions and let's people meet in that space.
+
+    global largespaces, AppAdminID
+
+    orig_big_space_id = request.form['room_id']
+    print("Orig big space ID: ",orig_big_space_id)
+
+    reserved_space_id=''
+
+    for largespace in largespaces:
+        if not largespace['busy']:
+            #first capture the space id we are going to reserve and mark it as busy. Also associate
+            #it with the space being swapped out
+            print("Reserving space: ",largespace['name']," with space id: ",largespace['id'])
+            reserved_space_id=largespace['id']
+            largespace['busy']=True
+            largespace['borrowing_space_id'] = orig_big_space_id
+
+            #now clean it up in case there were still members on it besides AppAdmin and the owner.
+            api = WebexTeamsAPI(access_token=ACCESS_TOKEN)
+            reserved_existing_members=api.memberships.list(reserved_space_id)
+            print("Checking for stragglers in large space that is free.....")
+            for existing_member in reserved_existing_members:
+                print("Evaluating membership: ",existing_member)
+                print("Display name: ", existing_member.personDisplayName)
+                if existing_member.personId!=AppAdminID and existing_member.personId!=largespace['ownerId']:
+                    print("Removing member in supposedly free large space: ",existing_member.personDisplayName)
+                    api.memberships.delete(existing_member.id)
+
+            #next we populate the reserved large space with members of the original space, except AppAdmin who is already there
+            print("Populating reserved space with members from original space...")
+            orig_big_space_members = api.memberships.list(orig_big_space_id)
+            for orig_member in orig_big_space_members:
+                if orig_member.personId!=AppAdminID:
+                    api.memberships.create(reserved_space_id,orig_member.personId)
+                    print("added: ",orig_member.personDisplayName)
+
+            break
+
+    if reserved_space_id=='':
+        print("All large spaces are busy!")
+        data = {'message': 'No large spaces available', 'reserved_space_id': reserved_space_id}
+        return make_response(jsonify(data), 500)
+    else:
+        print("Reserved space id: ", reserved_space_id)
+        data = {'message': 'Reserved', 'reserved_space_id': reserved_space_id}
+        return make_response(jsonify(data), 201)
+
+
+
+
+
+@app.route('/return_big_space', methods=["POST"])
+def return_big_space():
+    # this should be called when a large meeting is over, for now, when one of the participants hits a custom "end" button on the page
+    # For now it might error out if there are still people meeting since we should not be able to remove membership in the middle of a call,
+    # but we will try anyhow.
+    # To start, we need to receive the large "borrowed" space ID to go ahead and remove it's members except the owner and AppAdmin, then mark it in
+    # largespaces.json as free and write the file back out
+    # then, we need to return to the calling Ajax function the space ID of the original space so it can be shown again with the "custom" call button
+
+    global largespaces, AppAdminID
+
+    #reserved_space_id = request.form['reserved_space_id']
+    orig_big_space_id= request.form['orig_big_space_id']
+
+    print("Returning big space that replaced original: ", orig_big_space_id)
+
+
+    #print("Reserved space ID to return: ", reserved_space_id)
+
+    reserved_space_id=''
+
+    for largespace in largespaces:
+        if largespace['borrowing_space_id']==orig_big_space_id:
+            # first get back the borrowing space id and mark this large space as free.
+            #
+            print("Returning space: ", largespace['name'], " with space id: ", largespace['id'])
+            reserved_space_id = largespace['id']
+            largespace['busy'] = False
+            largespace['borrowing_space_id'] = ''
+
+            # now clean it up since it is no longer being used
+            api = WebexTeamsAPI(access_token=ACCESS_TOKEN)
+            reserved_existing_members = api.memberships.list(reserved_space_id)
+            print("Removing members from space we just freed.....")
+            for existing_member in reserved_existing_members:
+                if existing_member.personId != AppAdminID and existing_member.personId != largespace['ownerId']:
+                    print("Removing member from the space: ", existing_member.personDisplayName)
+                    api.memberships.delete(existing_member.id)
+            break
+
+    if reserved_space_id=='':
+        #return error
+        data = {'message': 'Could not return reserved large room', 'reserved_space_id': reserved_space_id}
+        return make_response(jsonify(data), 500)
+    else:
+        data = {'message': 'Returned to pool', 'reserved_space_id': reserved_space_id}
+        return make_response(jsonify(data), 201)
+
 #Main Function
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', debug=False)
+    app.run(host='0.0.0.0', port=5000, debug=True)
 

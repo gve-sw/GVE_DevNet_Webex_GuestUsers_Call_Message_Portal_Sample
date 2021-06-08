@@ -73,7 +73,7 @@ Be sure to note the Guest Issuer Name, Guest Issuer ID and Guest Issuer Shared S
 CLient Secret generated there. 
 
 
-7. Copy the `.env.default` file to `.env` 
+8. Copy the `.env.default` file to `.env` 
 ```
 cp .env.default .env
 ```
@@ -82,8 +82,6 @@ Edit `.env` and fill out the requested values:
 `GUEST_ISSUER_ID`: Specified when creating the Guest Issuer Authority described above.  
 `GUEST_SHARED_SECRET`: This is the Guest Issuer Shared Secret obtained when creating the Guest Issuer Authority described above.  
 `GUEST_TOKEN_EXPIRATION`: Time in seconds the guest token should be valid for. The default value  in the samle is 5400 seconds or 90 minutes which is usually enough for a regular tele-consultation or to have the guest join a meeting that lasts 1 hour (in case of extension)
-`WEBEX_TEAMS_ACCESS_TOKEN`: The access token of the Webex teams account to use for "App Admin". This is temporary as in future version a full
-oAuth flow will be implemented.
 `CLIENT_ID`: This is Client ID from the integration you created above.
 `CLIENT_SECRET`: This is the Client Secret from the integration you created above.
 
@@ -91,18 +89,29 @@ Also, in the `app.py` file, configure the following variable:
 
 **PUBLIC_URL**
 Set PUBLIC_URL to the URL where your instance of this Flask application will run. If you do not change the parameters 
-of app.run() at the end of the app.py file, this should be the same value of 'http://0.0.0.0:5000' that is set by default 
+of app.run() at the end of the app.py file, this should be the same value of 'http://localhost:5000' that is set by default 
 in the sample code.  
 NOTE: This URL does not actually have to map to a public IP address out on the internet. 
 
-
+9. Populate the `largespaces.json` file with the id, name and ownerID of as many spaces owned by licensed Webex Meetings users as the number of concurrent large meetings 
+you expect to handle in the sample application. Leave the "busy" fields for all as "false" and the "borrowing_space_id" empty since these are managed by the code. 
+The values set in this file are just a starting point for the application, the file is not written back to the file system so if you stop the application, all reservations will be reset,  but the code does "clean up" large spaces to use before re-using them (removes temporary members )
 
 
 ## Usage
 
     $ python app.py
 
-Once the flask app is running, go the main page (i.e. http://0.0.0.0:5000) and select the Administrator Login button. No need to fill out credentials.
+Once the flask app is running, go the main page (i.e. http://localhost:5000) and select the Administrator Login button. If this is the first time running the 
+application, you will be re-directed to the login page of the Webex organization you are using to start and oAuth flow and then will be re-directed to the 
+Admin page. 
+Since the authentication and refresh tokens are stored locally in the **tokens.json** file, you can use the application without having to 
+re-authenticate for as long as you want as long as you refresh any expired tokens at least once every 60 days. This refresh is done 
+automatically when you try to use the application to access the main page with the Spaces dropdown, but you can also use 
+the /refresh route to force refreshing of the token. 
+
+NOTE: clear out the **tokens.json** file when you are done using the sample so they are not left insecured in the test server. 
+When creating production code using this sample as a reference, be sure to store in a more secure manner and fully encrypted.  
 
 NOTE: For audio/video communications to work using the Webex Widgets and eventually the Webex SDK, you must connect to the web server using 
 https or localhost (i.e. localhost:500 or https://0.0.0.0:5000). There are many articles on the web on how to enable HTTPS for Flask servers,
@@ -112,32 +121,18 @@ gives details on the various options to Deploy Flask for production with full se
 
 You will be presented with a page where you can add new guest users using the "+ New Guest Account" button on the top left. 
 
-After you have created at least 2 guest users, go back to the login page by clicking on the "Logout" button on the top right. 
+After you have created at least 2 guest users, go back to the login page by clicking on the "Logout" or Home button on the top right. 
 
 Back in the main login screen, enter the username and password for one of the guest users you created and click on "Guest Login"
 
 You will be presented with a "List Active Rooms" section which will be initially empty. To create rooms with other users, click on the magnifier glass 
-on the top left , select at least 2 users (including yourself) and click on Connect.  You then need to back out with the Logout button on the top right 
-and log back in with the guest credentials to see the newly created room.
+on the top left , select at least 2 users (including yourself) and click on Connect.  This will create the new room and refresh the page to show it in the 
+"Last Active Rooms" column on the left.
+
+NOTE: If you have not logged in for the first time on the application and the **tokens.json** file is not present or the token is expired beyond 
+the refresh period, you will get taken back to the login page with an error message to contact the administrator and have them log into the application. 
 
 Now click on the room and a Webex Gadget will be presented where you can chat and meet with the other user(s) in that space.
-
-=========================================  
-
-NOTE: INSTRUCTIONS BELOW IF FOR WHEN THE OAUTH FLOW IS IMPLEMENTED  
-Once the flask app is running, use a browser to go to value you used for PUBLIC_URL which will re-direct to a Webex Teams 
-authentication page if the first time using it so you can log in using your Webex Teams account credentials. 
-
-Since the authentication and refresh tokens are stored locally in the **tokens.json** file, you can use the application without having to 
-re-authenticate for as long as you want as long as you refresh any expired tokens at least once every 60 days. This refresh is done 
-automatically when you try to use the application to access the main page with the Spaces dropdown, but you can also use 
-the /refresh route to force refreshing of the token. 
-
-NOTE: clear out the **tokens.json** file when you are done using the sample so they are not left insecured in the test server. 
-When creating production code using this sample as a reference, be sure to store in a more secure manner and fully encrypted.   
-
-============================================  
-
 
 
 ### LICENSE
