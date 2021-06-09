@@ -3,8 +3,6 @@
 This sample shows how to create a web portal that allows and organization to have Webex Guest Token users log in and message/meet 
 with other Guest Token users all under the control of full Webex accounts so that there is total control of who can message/meet with whom.  
 
-
-
 ## Contacts
 * Gerardo Chaves (gchaves@cisco.com)
 * Alvin Lau (alvlau@cisco.com)
@@ -102,7 +100,11 @@ The values set in this file are just a starting point for the application, the f
 
     $ python app.py
 
-Once the flask app is running, go the main page (i.e. http://localhost:5000) and select the Administrator Login button. If this is the first time running the 
+Once the flask app is running, go the main page (i.e. http://localhost:5000) and select the Administrator Login button. 
+
+![Login](./IMAGES/MainLogin.png)
+
+If this is the first time running the 
 application, you will be re-directed to the login page of the Webex organization you are using to start and oAuth flow and then will be re-directed to the 
 Admin page. 
 Since the authentication and refresh tokens are stored locally in the **tokens.json** file, you can use the application without having to 
@@ -121,19 +123,47 @@ gives details on the various options to Deploy Flask for production with full se
 
 You will be presented with a page where you can add new guest users using the "+ New Guest Account" button on the top left. 
 
+![EditGuests](./IMAGES/EditGuests.png)
+
+![AddGuest](./IMAGES/AddGuest.png)
 After you have created at least 2 guest users, go back to the login page by clicking on the "Logout" or Home button on the top right. 
 
 Back in the main login screen, enter the username and password for one of the guest users you created and click on "Guest Login"
 
+![GuestLogin](./IMAGES/GuestLogin.png)
+
 You will be presented with a "List Active Rooms" section which will be initially empty. To create rooms with other users, click on the magnifier glass 
 on the top left , select at least 2 users (including yourself) and click on Connect.  This will create the new room and refresh the page to show it in the 
 "Last Active Rooms" column on the left.
+
+![CreateSpace](./IMAGES/CreateSpace.png)
 
 NOTE: If you have not logged in for the first time on the application and the **tokens.json** file is not present or the token is expired beyond 
 the refresh period, you will get taken back to the login page with an error message to contact the administrator and have them log into the application. 
 
 Now click on the room and a Webex Gadget will be presented where you can chat and meet with the other user(s) in that space.
 
+![Messaging](./IMAGES/Messaging.png)
+
+While you have a guest page open, if you receive a message, a toaster notification will show on the upper right alerting 
+you of the message.  
+
+![Toaster](./IMAGES/Toaster.png)
+
+To initiate a call in the space, click on the green button on the upper right and then on the call button within 
+the Gadget
+
+![Call](./IMAGES/Call.png)
+
+If the space selected to try and call into has more than 2 participants plus the "AppAdmin", the backend code will reserve 
+a space that belongs to a fully licensed Meetings User specified in the ```largespaces.json``` file and use that temporarily 
+for the meeting. To be able to "release" that room, you need to click on the End button on the bottom right of the widget. 
+
+![LargeEnd](./IMAGES/LargeEnd.png)
+
+This usage of the red "End" button is only needed in for meetings in those "large" spaces that have more than 2 Guest Token users given 
+the licensing limitations where Guest Token users should not call each other directly or host meetings with more than 
+3 participants. 
 
 ### LICENSE
 
