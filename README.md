@@ -57,7 +57,10 @@ For this sample, the end user will be a Webex Teams Guest User.
 This user is a dynamically created user that does not require an existing Webex Teams account to utilize Webex Teams services.
 To be able to create these Guest Users, you will need to create a "Guest Issuer" account on the Webex for Developers portal.
 
-- Login to the Webex for Developers site at <https://developer.webex.com>
+It is recommended you select one fully licensed user (with Webex Messaging and Meetings) to be the "AppAdmin" user for this sample. Use those credentials 
+to create the Guest Issuer Authority described below and also to be members of the Spaces specified in the ```largespaces.json``` file described below
+
+- Login to the Webex for Developers site at <https://developer.webex.com> using the credentials of the "AppAdmin" user mentioned above.
 
   - Once logged in, click on "My Webex Teams Apps" under your profile at the top
   - Click "Create a New App" button
@@ -68,7 +71,7 @@ To be able to create these Guest Users, you will need to create a "Guest Issuer"
 Be sure to note the Guest Issuer Name, Guest Issuer ID and Guest Issuer Shared Secret provided when you created the guest issuer authority to use in the next step.   
 
 7. Create a [Webex Integrations](https://developer.webex.com/docs/integrations) as per instructions in that link. You will need to note the Client ID and 
-CLient Secret generated there. 
+CLient Secret generated there. You can utilize and licensed user in your organization, but it might be simpler to also use the credentials of the "AppAdmin"  user described above.
 
 
 8. Copy the `.env.default` file to `.env` 
@@ -89,10 +92,15 @@ Also, in the `app.py` file, configure the following variable:
 Set PUBLIC_URL to the URL where your instance of this Flask application will run. If you do not change the parameters 
 of app.run() at the end of the app.py file, this should be the same value of 'http://localhost:5000' that is set by default 
 in the sample code.  
-NOTE: This URL does not actually have to map to a public IP address out on the internet. 
+**NOTE:** This URL does not actually have to map to a public IP address out on the internet. 
 
 9. Populate the `largespaces.json` file with the id, name and ownerID of as many spaces owned by licensed Webex Meetings users as the number of concurrent large meetings 
-you expect to handle in the sample application. Leave the "busy" fields for all as "false" and the "borrowing_space_id" empty since these are managed by the code. 
+you expect to handle in the sample application.  
+   **IMPORTANT:** When creating these spaces manually with the accounts of those licensed users, be sure to add to the space the user you have designated as "AppAdmin" as 
+   described above to each one of these spaces. This is needed so that, when this sample code uses the AppAdmin access token obtained via oAuth flow , it can list the members of these spaces and add/remove 
+   members as needed.  
+   
+   Leave the "busy" fields for all as "false" and the "borrowing_space_id" empty since these are managed by the code.   
 The values set in this file are just a starting point for the application, the file is not written back to the file system so if you stop the application, all reservations will be reset,  but the code does "clean up" large spaces to use before re-using them (removes temporary members )
 
 
@@ -100,9 +108,11 @@ The values set in this file are just a starting point for the application, the f
 
     $ python app.py
 
-Once the flask app is running, go the main page (i.e. http://localhost:5000) and select the Administrator Login button. 
+Once the flask app is running, go the main page (i.e. http://localhost:5000) and click on the the **Administrator Login** button. 
 
 ![Login](./IMAGES/MainLogin.png)
+
+**NOTE:** You need to use the credentials for the user you designated as "AppAdmin" as discussed above if you are prompted to log in. 
 
 If this is the first time running the 
 application, you will be re-directed to the login page of the Webex organization you are using to start and oAuth flow and then will be re-directed to the 
@@ -112,10 +122,10 @@ re-authenticate for as long as you want as long as you refresh any expired token
 automatically when you try to use the application to access the main page with the Spaces dropdown, but you can also use 
 the /refresh route to force refreshing of the token. 
 
-NOTE: clear out the **tokens.json** file when you are done using the sample so they are not left insecured in the test server. 
+**NOTE:** clear out the **tokens.json** file when you are done using the sample so they are not left insecured in the test server. 
 When creating production code using this sample as a reference, be sure to store in a more secure manner and fully encrypted.  
 
-NOTE: For audio/video communications to work using the Webex Widgets and eventually the Webex SDK, you must connect to the web server using 
+**NOTE:** For audio/video communications to work using the Webex Widgets and eventually the Webex SDK, you must connect to the web server using 
 https or localhost (i.e. localhost:500 or https://0.0.0.0:5000). There are many articles on the web on how to enable HTTPS for Flask servers,
 but you are better off simply not using the Flask built-in server since it is not suitable for production. This section of the Flask documentation 
 gives details on the various options to Deploy Flask for production with full security enabled: https://flask.palletsprojects.com/en/0.12.x/deploying/
@@ -138,8 +148,9 @@ on the top left , select at least 2 users (including yourself) and click on Conn
 
 ![CreateSpace](./IMAGES/CreateSpace.png)
 
-NOTE: If you have not logged in for the first time on the application and the **tokens.json** file is not present or the token is expired beyond 
+**NOTE:** If you have not logged in for the first time on the application and the **tokens.json** file is not present or the token is expired beyond 
 the refresh period, you will get taken back to the login page with an error message to contact the administrator and have them log into the application. 
+Remember to use the credentials for the "AppAdmin" user discussed above when loging in as Administrator
 
 Now click on the room and a Webex Gadget will be presented where you can chat and meet with the other user(s) in that space.
 
